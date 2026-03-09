@@ -1,0 +1,45 @@
+# IPSec VPN Test Configuration
+# Copy this file to config.yaml and fill in your credentials/IPs.
+
+# DUT (Device Under Test) credentials
+dut_user: "admin"
+dut_pass: "your_dut_password"
+
+# PC (Test Client) credentials
+pc_user: "testuser"
+pc_pass: "your_pc_password"
+
+# VPN settings
+vpn_name: "S2S_Test"
+psk: "YourPreSharedKey"
+
+# DUT-A
+dut_a:
+  name: "DUT-A"
+  mgmt_ip: "192.168.121.x"
+  wan_ip: "192.168.111.x"
+  lan_subnet: "192.168.1.0/24"
+  lan_gateway: "192.168.1.1"
+
+# DUT-B
+dut_b:
+  name: "DUT-B"
+  mgmt_ip: "192.168.121.x"
+  wan_ip: "192.168.111.x"
+  lan_subnet: "192.168.2.0/24"
+  lan_gateway: "192.168.2.1"
+
+# PC-B
+pc_b:
+  mgmt_ip: "192.168.121.x"
+  lan_ip: "192.168.1.x"
+
+# PC-C
+pc_c:
+  mgmt_ip: "192.168.121.x"
+  lan_ip: "192.168.2.x"
+
+# Test options
+headless: false
+screenshot_dir: "screenshots"
+default_lan_cidr: "192.168.168.1/24"

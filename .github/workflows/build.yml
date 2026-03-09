@@ -1,0 +1,148 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a GitHub Release'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS-arm64
+            archive_ext: tar.gz
+          - os: ubuntu-latest
+            platform: Linux-x86_64
+            archive_ext: tar.gz
+          - os: windows-latest
+            platform: Windows-x86_64
+            archive_ext: zip
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.platform }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller playwright pyyaml
+
+      - name: Install Chromium browser
+        run: playwright install chromium
+
+      - name: Find Chromium path
+        id: chromium
+        shell: bash
+        run: |
+          # Extract install location from playwright dry-run
+          CHROMIUM_PATH=$(playwright install --dry-run chromium 2>&1 | grep "Install location" | head -1 | sed 's/.*Install location:\s*//')
+          echo "path=$CHROMIUM_PATH" >> "$GITHUB_OUTPUT"
+          echo "version=$(basename $CHROMIUM_PATH)" >> "$GITHUB_OUTPUT"
+          echo "Found Chromium: $CHROMIUM_PATH"
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller \
+            --name ipsec_vpn_test \
+            --onedir \
+            --noconfirm \
+            --clean \
+            --collect-all playwright \
+            --hidden-import yaml \
+            --hidden-import playwright \
+            --hidden-import playwright.async_api \
+            --hidden-import playwright.sync_api \
+            ipsec_vpn_test.py
+        shell: bash
+
+      - name: Bundle Chromium into dist
+        shell: bash
+        run: |
+          CHROMIUM_PATH="${{ steps.chromium.outputs.path }}"
+          CHROMIUM_VER="${{ steps.chromium.outputs.version }}"
+          DEST="dist/ipsec_vpn_test/_internal/ms-playwright/$CHROMIUM_VER"
+          mkdir -p "$DEST"
+          cp -a "$CHROMIUM_PATH/." "$DEST/"
+          echo "Chromium bundled: $CHROMIUM_VER"
+
+      - name: Prepare distribution
+        shell: bash
+        run: |
+          cp config.yaml.example dist/ipsec_vpn_test/
+          mkdir -p dist/ipsec_vpn_test/screenshots
+
+      - name: Package (tar.gz)
+        if: matrix.archive_ext == 'tar.gz'
+        shell: bash
+        run: |
+          cd dist
+          tar czf ../ipsec_vpn_test-${{ matrix.platform }}.tar.gz ipsec_vpn_test
+
+      - name: Package (zip)
+        if: matrix.archive_ext == 'zip'
+        shell: bash
+        run: |
+          cd dist
+          7z a -r ../ipsec_vpn_test-${{ matrix.platform }}.zip ipsec_vpn_test
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipsec_vpn_test-${{ matrix.platform }}
+          path: ipsec_vpn_test-${{ matrix.platform }}.${{ matrix.archive_ext }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=v0.0.0-dev-$(date +%Y%m%d%H%M%S)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+          generate_release_notes: true
+          files: |
+            artifacts/**/*

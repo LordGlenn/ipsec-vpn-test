@@ -52,14 +52,24 @@ jobs:
 
       - name: Find Chromium path
         id: chromium
-        shell: bash
+        shell: python
         run: |
-          # Extract install location from playwright dry-run
-          CHROMIUM_PATH=$(playwright install --dry-run chromium 2>&1 | grep "Install location" | head -1 | sed 's/.*Install location://' | xargs)
-          echo "path=$CHROMIUM_PATH" >> "$GITHUB_OUTPUT"
-          echo "version=$(basename $CHROMIUM_PATH)" >> "$GITHUB_OUTPUT"
-          echo "Found Chromium: [$CHROMIUM_PATH]"
-          ls -la "$CHROMIUM_PATH" || echo "WARNING: path not found"
+          import subprocess, re, os
+          result = subprocess.run(
+              ['playwright', 'install', '--dry-run', 'chromium'],
+              capture_output=True, text=True
+          )
+          output = result.stdout + result.stderr
+          m = re.search(r'Install location:\s*(.+)', output)
+          if not m:
+              raise RuntimeError(f"Cannot find Chromium path in output:\n{output}")
+          path = m.group(1).strip()
+          ver = os.path.basename(path)
+          print(f"Found Chromium: [{path}]")
+          print(f"Version: {ver}")
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'path={path}\n')
+              f.write(f'version={ver}\n')
 
       - name: Build with PyInstaller
         run: |
@@ -77,20 +87,22 @@ jobs:
         shell: bash
 
       - name: Bundle Chromium into dist
-        shell: bash
+        shell: python
         run: |
-          CHROMIUM_PATH="${{ steps.chromium.outputs.path }}"
-          CHROMIUM_VER="${{ steps.chromium.outputs.version }}"
-          DEST="dist/ipsec_vpn_test/_internal/ms-playwright/$CHROMIUM_VER"
-          mkdir -p "$DEST"
-          cp -a "$CHROMIUM_PATH/." "$DEST/"
-          echo "Chromium bundled: $CHROMIUM_VER"
+          import shutil, os
+          chromium_path = r'${{ steps.chromium.outputs.path }}'
+          chromium_ver = r'${{ steps.chromium.outputs.version }}'
+          dest = os.path.join('dist', 'ipsec_vpn_test', '_internal', 'ms-playwright', chromium_ver)
+          print(f"Copying [{chromium_path}] -> [{dest}]")
+          shutil.copytree(chromium_path, dest)
+          print(f"Chromium bundled: {chromium_ver}")
 
       - name: Prepare distribution
-        shell: bash
+        shell: python
         run: |
-          cp config.yaml.example dist/ipsec_vpn_test/
-          mkdir -p dist/ipsec_vpn_test/screenshots
+          import shutil, os
+          shutil.copy2('config.yaml.example', os.path.join('dist', 'ipsec_vpn_test', 'config.yaml.example'))
+          os.makedirs(os.path.join('dist', 'ipsec_vpn_test', 'screenshots'), exist_ok=True)
 
       - name: Package (tar.gz)
         if: matrix.archive_ext == 'tar.gz'

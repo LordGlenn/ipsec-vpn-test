@@ -59,7 +59,7 @@ tar xzf ipsec_vpn_test-macOS-arm64.tar.gz
 cd ipsec_vpn_test
 
 # 2. macOS 首次執行需移除 quarantine 屬性（僅需一次）
-xattr -rd com.apple.quarantine .
+xattr -cr .
 
 # 3. 設定參數檔
 cp config.yaml.example config.yaml
@@ -71,7 +71,7 @@ cp config.yaml.example config.yaml
 ./ipsec_vpn_test all       # 全部執行
 ```
 
-> **macOS 注意事項：** 從網路下載的執行檔會被 macOS Gatekeeper 標記為不受信任，首次執行前必須執行 `xattr -rd com.apple.quarantine .` 移除 quarantine 屬性，否則會出現「無法打開，因為無法驗證開發者」的錯誤。
+> **macOS 注意事項：** 從網路下載的執行檔會被 macOS Gatekeeper 標記為不受信任，首次執行前必須執行 `xattr -cr .` 移除 quarantine 屬性，否則會出現「無法打開，因為無法驗證開發者」的錯誤。
 
 > 唯一前置需求：`sshpass`
 >

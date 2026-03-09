@@ -88,6 +88,21 @@ default_lan_cidr: "192.168.168.1/24"
 
 ### 2. 執行測試
 
+#### 方式 A：使用預編譯執行檔（推薦，無需安裝任何套件）
+
+從 Release 頁面下載 `ipsec_vpn_test-macOS-arm64.tar.gz`，解壓後直接執行：
+
+```bash
+tar xzf ipsec_vpn_test-macOS-arm64.tar.gz
+cd ipsec_vpn_test
+cp config.yaml.example config.yaml   # 編輯填入實際設定
+./ipsec_vpn_test wizard              # 或 custom / all
+```
+
+> **唯一前置需求**：`sshpass`（macOS: `brew install hudochenkov/sshpass/sshpass`）
+
+#### 方式 B：從原始碼執行
+
 ```bash
 # 首次執行會自動建立虛擬環境、安裝 Python 套件與 Chromium 瀏覽器
 ./run.sh wizard    # Wizard VPN 測試
@@ -95,11 +110,13 @@ default_lan_cidr: "192.168.168.1/24"
 ./run.sh all       # 全部執行
 ```
 
-> **唯一前置需求**：Python 3.9+ 和 `sshpass`
->
-> macOS 安裝 sshpass：`brew install hudochenkov/sshpass/sshpass`
->
-> Ubuntu 安裝 sshpass：`sudo apt install sshpass`
+> 前置需求：Python 3.9+ 和 `sshpass`
+
+#### 方式 C：自行編譯
+
+```bash
+./build.sh         # 產生 dist/ipsec_vpn_test/ 目錄（含 Chromium，約 470MB）
+```
 
 ### 自動化流程
 
@@ -116,8 +133,8 @@ default_lan_cidr: "192.168.168.1/24"
 
 ### 控制端（執行腳本的機器）
 
-- Python 3.9+（其餘由 `run.sh` 自動安裝）
-- `sshpass`（用於 SSH 自動登入測試 PC）
+- **預編譯版**：僅需 `sshpass`
+- **原始碼版**：Python 3.9+ 和 `sshpass`（其餘由 `run.sh` 自動安裝）
 
 ### 測試 PC（PC-B, PC-C）
 
@@ -137,6 +154,7 @@ default_lan_cidr: "192.168.168.1/24"
 ```
 ipsec-vpn-test/
 ├── run.sh                     # 一鍵執行腳本（自動建立環境）
+├── build.sh                   # PyInstaller 打包腳本
 ├── ipsec_vpn_test.py          # 主程式（含 wizard / custom / all 模式）
 ├── config.yaml.example        # 參數檔範本
 ├── README.md

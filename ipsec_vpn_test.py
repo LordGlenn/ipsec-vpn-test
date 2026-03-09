@@ -28,9 +28,33 @@ from typing import List, Optional, Tuple
 import yaml
 from playwright.async_api import async_playwright, Page
 
+# ─── PyInstaller Support ────────────────────────────────────────────────────
+
+def _get_base_dir():
+    # type: () -> str
+    """Return the directory where the executable (or script) resides."""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller --onedir: sys.executable is inside dist/ipsec_vpn_test/
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def _setup_playwright_env():
+    """Set PLAYWRIGHT_BROWSERS_PATH if running from PyInstaller bundle."""
+    if not getattr(sys, 'frozen', False):
+        return
+    # PyInstaller --onedir: _internal/ is at sys._MEIPASS
+    bundle_dir = sys._MEIPASS  # type: ignore[attr-defined]
+    browsers_dir = os.path.join(bundle_dir, 'ms-playwright')
+    if os.path.isdir(browsers_dir):
+        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_dir
+
+
+_setup_playwright_env()
+
 # ─── Configuration ───────────────────────────────────────────────────────────
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yaml')
+CONFIG_FILE = os.path.join(_get_base_dir(), 'config.yaml')
 
 
 @dataclass
@@ -88,7 +112,15 @@ def load_config(path=CONFIG_FILE):
     )
 
 
-CFG = load_config()
+# Lazy-loaded: initialized by init_cfg() at test start, so --help works without config.yaml
+CFG = None  # type: Optional[TestConfig]
+
+
+def init_cfg():
+    # type: () -> None
+    global CFG
+    if CFG is None:
+        CFG = load_config()
 
 # ─── Custom VPN Test Cases ──────────────────────────────────────────────────
 
@@ -218,7 +250,10 @@ async def click_btn(page, text, timeout=5000):
 
 def screenshot_path(name):
     # type: (str) -> str
-    return os.path.join(CFG.screenshot_dir, f'{name}.png')
+    sd = CFG.screenshot_dir
+    if not os.path.isabs(sd):
+        sd = os.path.join(_get_base_dir(), sd)
+    return os.path.join(sd, f'{name}.png')
 
 
 # ─── LAN Configuration ──────────────────────────────────────────────────────
@@ -1089,7 +1124,11 @@ def generate_custom_report(all_case_results):
 
 async def main_wizard():
     # type: () -> int
-    os.makedirs(CFG.screenshot_dir, exist_ok=True)
+    init_cfg()
+    sd = CFG.screenshot_dir
+    if not os.path.isabs(sd):
+        sd = os.path.join(_get_base_dir(), sd)
+    os.makedirs(sd, exist_ok=True)
 
     print('=' * 60)
     print('IPSec Site-to-Site VPN Automated Test — Wizard Mode')
@@ -1142,7 +1181,7 @@ async def main_wizard():
     # Report
     print('\n--- Generating Report ---')
     report = generate_wizard_report(results)
-    report_path = 'IPSec_VPN_Test_Report.md'
+    report_path = os.path.join(_get_base_dir(), 'IPSec_VPN_Test_Report.md')
     with open(report_path, 'w') as f:
         f.write(report)
     print(f'Report saved to {report_path}')
@@ -1172,7 +1211,11 @@ async def main_wizard():
 
 async def main_custom():
     # type: () -> int
-    os.makedirs(CFG.screenshot_dir, exist_ok=True)
+    init_cfg()
+    sd = CFG.screenshot_dir
+    if not os.path.isabs(sd):
+        sd = os.path.join(_get_base_dir(), sd)
+    os.makedirs(sd, exist_ok=True)
 
     print('=' * 60)
     print('IPSec VPN Custom Configuration Automated Test')
@@ -1239,7 +1282,7 @@ async def main_custom():
     # Report
     print('\n--- Generating Report ---')
     report = generate_custom_report(all_case_results)
-    report_path = 'IPSec_Custom_VPN_Test_Report.md'
+    report_path = os.path.join(_get_base_dir(), 'IPSec_Custom_VPN_Test_Report.md')
     with open(report_path, 'w') as f:
         f.write(report)
     print(f'Report saved to {report_path}')

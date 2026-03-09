@@ -1,7 +1,11 @@
 config.yaml
 screenshots/
 .venv/
+.build_venv/
 __pycache__/
+dist/
+build/
+*.spec
 IPSec_VPN_Test_Report.md
 IPSec_Custom_VPN_Test_Report.md
 scripts/dev/

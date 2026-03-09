@@ -18,6 +18,7 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -54,10 +55,11 @@ jobs:
         shell: bash
         run: |
           # Extract install location from playwright dry-run
-          CHROMIUM_PATH=$(playwright install --dry-run chromium 2>&1 | grep "Install location" | head -1 | sed 's/.*Install location:\s*//')
+          CHROMIUM_PATH=$(playwright install --dry-run chromium 2>&1 | grep "Install location" | head -1 | sed 's/.*Install location://' | xargs)
           echo "path=$CHROMIUM_PATH" >> "$GITHUB_OUTPUT"
           echo "version=$(basename $CHROMIUM_PATH)" >> "$GITHUB_OUTPUT"
-          echo "Found Chromium: $CHROMIUM_PATH"
+          echo "Found Chromium: [$CHROMIUM_PATH]"
+          ls -la "$CHROMIUM_PATH" || echo "WARNING: path not found"
 
       - name: Build with PyInstaller
         run: |
